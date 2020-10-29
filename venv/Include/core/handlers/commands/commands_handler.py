@@ -17,3 +17,12 @@ async def cancel_handler(message: types.Message, state: FSMContext):
         return
     await state.finish()
     await message.reply('Действие отменено', reply_markup=types.ReplyKeyboardRemove())
+
+@dp.message_handler(state='*')
+@dp.message_handler(Text(equals='cancle', ignore_case=True), state='*')
+async def cancel_handler(message: types.Message, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state is None:
+        return
+    await state.finish()
+    await message.reply('Действие отменено', reply_markup=types.ReplyKeyboardRemove())

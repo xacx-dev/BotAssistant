@@ -11,3 +11,6 @@ class AddGroups(StatesGroup):
 class MessageToGroup(StatesGroup):
     WriteAndSendMSG = State()
 
+class ChatRemove(StatesGroup):
+    ChatId = State()
+

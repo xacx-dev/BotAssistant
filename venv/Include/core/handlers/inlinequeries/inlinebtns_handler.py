@@ -2,7 +2,7 @@ from aiogram import types
 from config import dp,bot
 from .messages import *
 from aiogram.dispatcher import FSMContext
-from Include.core.states import AddGroups, MessageToGroup
+from Include.core.states import AddGroups, MessageToGroup,ChatRemove
 from Include.core.helpers.requestsApi import *
 from Include.core.helpers import telegram as tg_helper
 import openpyxl
@@ -24,11 +24,36 @@ async def create_newsletter_group(callback_query: types.CallbackQuery, state: FS
 
 @dp.message_handler(lambda message: message.text, state=MessageToGroup.WriteAndSendMSG, content_types=types.ContentTypes.TEXT)
 async def WriteAndSendMSG(message: types.Message, state: FSMContext):
-        async with state.proxy() as data:
+    if message.text == "/cancel":
+        await stop_state(state, message)
+        return
+    async with state.proxy() as data:
             send_msg(data['groupid'],message.text)
             await bot.send_message(message.from_user.id,msg_sended)
 
+@dp.message_handler(lambda message: message.text, state=ChatRemove.ChatId)
+async def ChatRemove_func(message: types.Message, state: FSMContext):
+    if message.text == "/cancel":
+        await stop_state(state,message)
+        return
+    async with state.proxy() as data:
+        try:
+            id = int(message.text)
+            if delete_chat(id):
+                await bot.send_message(message.from_user.id, text=chat_deleted)
+                await state.finish()
+                return
+            else:
+                await bot.send_message(message.from_user.id, text=chat_del_err)
+        except:
+            await bot.send_message(message.from_user.id, text=chat_del_err)
+            pass
 
+
+@dp.callback_query_handler(text='remove_chat',state="*")
+async def process_callback_authbtn(callback_query: types.CallbackQuery):
+    await ChatRemove.ChatId.set()
+    await bot.send_message(callback_query.from_user.id,text=chat_del_msg)
 
 
 
@@ -56,7 +81,7 @@ async def manage_group(callback_query: types.CallbackQuery):
 @dp.callback_query_handler(lambda c: str(c.data).split("_")[0].__eq__("removegroup"),state="*")
 async def remove_group(callback_query: types.CallbackQuery):
     groupid = str(callback_query.data).split("_")[1]
-    delete_group(groupide)
+    delete_group(groupid)
     await bot.edit_message_text(chat_id=callback_query.from_user.id, message_id=callback_query.message.message_id,
                                 text=group_deleted + "\n" + select_group, reply_markup=get_groups_btn())
 
@@ -78,7 +103,6 @@ def get_groups_btn():
 @dp.message_handler(state=AddGroups.GetFile, content_types=['document'])
 async def get_names(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
-        print(message)
         file = await bot.get_file(message.document.file_id)
         file_path = file.file_path
         await bot.download_file(file_path, message.document.file_name)
@@ -100,6 +124,9 @@ async def get_names(message: types.Message, state: FSMContext):
 
 @dp.message_handler(lambda message: message.text, state=AddGroups.NewGroupName, content_types=types.ContentTypes.TEXT)
 async def get_name(message: types.Message, state: FSMContext):
+    if message.text == "/cancel":
+        await stop_state(state,message)
+        return
     async with state.proxy() as data:
         data['name'] = message.text
         await AddGroups.next()
@@ -110,6 +137,11 @@ async def process_callback_authbtn(callback_query: types.CallbackQuery):
     await bot.send_message(callback_query.from_user.id,text=new_gropu_name)
     await AddGroups.NewGroupName.set()
 
-
+async def stop_state(state,message):
+    current_state = await state.get_state()
+    if current_state is None:
+        return
+    await state.finish()
+    await message.reply('Действие отменено', reply_markup=types.ReplyKeyboardRemove())
 
 
