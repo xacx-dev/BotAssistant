@@ -26,4 +26,13 @@ def get_chats_in_group(id):
     chats = requests.get(req_url + "/group/"+str(id)).json()
     return chats
 
+def delete_group(id):
+    requests.delete(req_url + "/group/"+str(id))
+
+def send_msg(id,text):
+    requests.post(req_url + "/message/"+str(id)+"?message="+str(text))
+
+
+
+
 

@@ -2,7 +2,7 @@ from aiogram import types
 from config import dp,bot
 from .messages import *
 from aiogram.dispatcher import FSMContext
-from Include.core.states import AddGroups
+from Include.core.states import AddGroups, MessageToGroup
 from Include.core.helpers.requestsApi import *
 from Include.core.helpers import telegram as tg_helper
 import openpyxl
@@ -13,6 +13,25 @@ async def process_callback_authbtn(callback_query: types.CallbackQuery):
     await bot.edit_message_text(chat_id=callback_query.from_user.id,message_id=callback_query.message.message_id,
     text=select_group,reply_markup=get_groups_btn())
 
+
+@dp.callback_query_handler(lambda c: str(c.data).split("_")[0].__eq__("createnewslettergroup"),state="*")
+async def create_newsletter_group(callback_query: types.CallbackQuery, state: FSMContext):
+    groupid = str(callback_query.data).split("_")[1]
+    async with state.proxy() as data:
+        data['groupid']=groupid
+        await MessageToGroup.WriteAndSendMSG.set()
+        await bot.send_message(callback_query.from_user.id,write_msg)
+
+@dp.message_handler(lambda message: message.text, state=MessageToGroup.WriteAndSendMSG, content_types=types.ContentTypes.TEXT)
+async def WriteAndSendMSG(message: types.Message, state: FSMContext):
+        async with state.proxy() as data:
+            send_msg(data['groupid'],message.text)
+            await bot.send_message(message.from_user.id,msg_sended)
+
+
+
+
+
 @dp.callback_query_handler(lambda c: str(c.data).split("_")[0].__eq__("group"),state="*")
 async def manage_group(callback_query: types.CallbackQuery):
     groupid = str(callback_query.data).split("_")[1]
@@ -21,7 +40,7 @@ async def manage_group(callback_query: types.CallbackQuery):
         ("Удалить группу", "removegroup_"+str(groupid)),
         ("Удалить чат", "remove_chat"),
         ("Назад", "create_newsletter"),
-        ("Рассылка в группу", "create_newsletter_group")
+        ("Рассылка в группу", "createnewslettergroup_"+str(groupid))
     }
     group_manager = tg_helper.create_inline_markup(*btns)
     text = 'Чаты в этой группе:\n'
@@ -34,6 +53,12 @@ async def manage_group(callback_query: types.CallbackQuery):
 
 
 
+@dp.callback_query_handler(lambda c: str(c.data).split("_")[0].__eq__("removegroup"),state="*")
+async def remove_group(callback_query: types.CallbackQuery):
+    groupid = str(callback_query.data).split("_")[1]
+    delete_group(groupide)
+    await bot.edit_message_text(chat_id=callback_query.from_user.id, message_id=callback_query.message.message_id,
+                                text=group_deleted + "\n" + select_group, reply_markup=get_groups_btn())
 
 
 def get_groups_btn():
@@ -44,19 +69,6 @@ def get_groups_btn():
         data_list.append(tulist)
     btns = tg_helper.create_inline_markup(*data_list, row_width=2)
     return btns
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
